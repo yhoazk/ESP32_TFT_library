@@ -257,34 +257,25 @@ Deploy the SPIFFS image as below to make the image and font examples work.
 
 **To flash already prepared image to flash** execute:
 
-`ESPPORT=<PORT> make copyfs`
+`esptool.py --port=<PORT> --baud 115200 write_flash 0x180000 components/spiffs_image/storage.img`
+
+<sup>Change the UART port and the baudrate as needed; the address is the offset from partitions_example.csv</sup>
 
 ---
 
 You can also prepare different SFPIFFS **image** and flash it to ESP32.
 
 The example partition file reserves 1MB for SPIFFS.
-If you change the spiffs partition size, update the SPIFFS configuration as well.
 
-`idf.py menuconfig`
-Navigate to **Components -> TFT SPIFFS** and set **SPIFFS** options.
-
-Files to be included on spiffs are already in **components/spiffs_image/image/** directory. You can add or remove the files you want to include.
+Files to be included on spiffs are already in **spiffs_image/image/** directory. You can add or remove the files you want to include.
 
 Then execute:
 
-`make makefs`
+`$IDF_PATH/components/spiffs/spiffsgen.py $((1 * 1024 * 1024)) components/spiffs_image/image components/spiffs_image/storage.img`
 
-to create **spiffs image** in *build* directory **without flashing** to ESP32
+<sup>the expression in $(()) calculates the partition size in bytes, adjust when changing the partition size</sup>
 
-Or execute:
-
-`ESPPORT=<PORT> make flashfs`
-
-to create **spiffs image** in *build* directory and **flash** it to ESP32
-
----
-
+**and then run the flashing command** from above
 
 ---
 
