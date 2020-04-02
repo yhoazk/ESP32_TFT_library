@@ -11,12 +11,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #include "tftspi.h"
 #include "tft.h"
-#include "spiffs_vfs.h"
+#include "esp_spiffs.h"
+#include "dirent.h"
 
 #ifdef CONFIG_EXAMPLE_USE_WIFI
 
@@ -42,6 +44,8 @@ static struct tm* tm_info;
 static char tmp_buff[64];
 static time_t time_now, time_last = 0;
 static const char *file_fonts[3] = {"/spiffs/fonts/DotMatrix_M.fon", "/spiffs/fonts/Ubuntu.fon", "/spiffs/fonts/Grotesk24x48.fon"};
+static int spiffs_is_mounted = 0;
+#define SPIFFS_BASE_PATH "/spiffs"
 
 #define GDEMO_TIME 1000
 #define GDEMO_INFO_TIME 5000
@@ -1226,6 +1230,22 @@ void test_sd_card(void)
 // ================== TEST SD CARD ==========================================
 */
 
+void file_listing(){
+    DIR *dir;
+    printf("Listing contents of /spiffs/ fs\n");
+    struct dirent *ent;
+    bool opendir_successful = (dir = opendir("/spiffs/")) != NULL;
+    printf("Directory read error code: %s\n", strerror(errno));
+    if (opendir_successful) {
+      while ((ent = readdir(dir)) != NULL) {
+        printf ("File found: /spiffs/%s\n", ent->d_name);
+      }
+      closedir (dir);
+    } else {
+      printf("Error reading spiffs directory.\n");
+    }
+    
+}
 
 //=============
 void app_main()
@@ -1418,8 +1438,15 @@ void app_main()
     tft_fg = TFT_CYAN;
 	TFT_print("Initializing SPIFFS...", CENTER, CENTER);
     // ==== Initialize the file system ====
-    printf("\r\n\n");
-	vfs_spiffs_register();
+	esp_vfs_spiffs_conf_t conf = {
+        .base_path = SPIFFS_BASE_PATH,
+        .partition_label = "storage",
+        .max_files = 20,
+        .format_if_mount_failed = false
+    };
+	esp_err_t spiffs_ret = esp_vfs_spiffs_register(&conf);
+	spiffs_is_mounted = spiffs_ret == ESP_OK;
+	printf("\r\n\nSpiffs mount status: %s\n", esp_err_to_name(spiffs_ret));
     if (!spiffs_is_mounted) {
     	tft_fg = TFT_RED;
     	TFT_print("SPIFFS not mounted !", CENTER, LASTY+TFT_getfontheight()+2);
@@ -1428,7 +1455,9 @@ void app_main()
     	tft_fg = TFT_GREEN;
     	TFT_print("SPIFFS Mounted.", CENTER, LASTY+TFT_getfontheight()+2);
     }
-
+    
+    file_listing();
+    
 	Wait(-2000);
 
 	//=========
