@@ -8,9 +8,10 @@
 #define _TFTSPI_H_
 
 #include "tftspi.h"
-#include "spi_master_lobo.h"
+#include "driver/spi_master.h"
 #include "sdkconfig.h"
 #include "stmpe610.h"
+#include "esp_attr.h"
 
 #define TOUCH_TYPE_NONE		0
 #define TOUCH_TYPE_XPT2046	1
@@ -35,7 +36,10 @@
 #define DISP_TYPE_ST7735R	4
 #define DISP_TYPE_ST7735B	5
 
+// === the following are the definitions for existing boards ===
 
+// IMPORTANT CHANGE NOTE: when MISO is not used, it should allways be set to -1 here,
+//                        because that is how the spi_master driver expects it
 
 #if CONFIG_TFT_PREDEFINED_DISPLAY_TYPE == 1
 
@@ -161,12 +165,12 @@
 #define DEFAULT_TFT_DISPLAY_HEIGHT  240
 
 //Need to be defined together so they can be swapped for x;y when rotating
-#define TFT_STATIC_WIDTH_OFFSET 53
-#define TFT_STATIC_HEIGHT_OFFSET 40
+#define TFT_STATIC_WIDTH_OFFSET     53
+#define TFT_STATIC_HEIGHT_OFFSET    40
 
 #define DISP_COLOR_BITS_24          0x66
 #define DEFAULT_GAMMA_CURVE         0
-#define DEFAULT_SPI_CLOCK           20000000
+#define DEFAULT_SPI_CLOCK           80000000
 #define TFT_INVERT_ROTATION         0
 #define TFT_INVERT_ROTATION1        1
 #define TFT_RGB_BGR                 0x00
@@ -175,12 +179,12 @@
 
 #define USE_TOUCH	TOUCH_TYPE_NONE
 
-#define PIN_NUM_MISO 0		// SPI MISO
+#define PIN_NUM_MISO -1		// SPI MISO
 #define PIN_NUM_MOSI 19		// SPI MOSI
 #define PIN_NUM_CLK  18		// SPI CLOCK pin
 #define PIN_NUM_CS   5		// Display CS pin
 #define PIN_NUM_DC   16		// Display command/data pin
-#define PIN_NUM_TCS   0		// Touch screen CS pin
+#define PIN_NUM_TCS  -1		// Touch screen CS pin
 
 #define PIN_NUM_RST  23  	// GPIO used for RESET control
 #define PIN_NUM_BCKL  4     // GPIO used for backlight control
@@ -192,6 +196,7 @@
 
 // Configuration for other boards, set the correct values for the display used
 //----------------------------------------------------------------------------
+//NOTE: if not used, the MISO Pin should be set to -1
 #define DISP_COLOR_BITS_24	0x66
 //#define DISP_COLOR_BITS_16	0x55  // Do not use!
 
@@ -237,6 +242,7 @@
 // #######################################################################
 #define DEFAULT_TFT_DISPLAY_WIDTH  CONFIG_TFT_DISPLAY_WIDTH
 #define DEFAULT_TFT_DISPLAY_HEIGHT CONFIG_TFT_DISPLAY_HEIGHT
+//TODO: add TFT_STATIC_X_OFFSET and TFT_STATIc_Y_OFFSET to the configuration; NOTE: they will allways have to be dfined together
 // #######################################################################
 
 #define DEFAULT_GAMMA_CURVE 0
@@ -262,6 +268,21 @@
 #define TFT_STATIC_Y_OFFSET 0
 #endif
 
+// === Setting the buffer size for repeated color pushing ===
+// This value is pretty important, as it governs how big the queue size must be
+// but also takes up valuable DRAM space it self.
+// As this is the size in color_t, a value of 1 will take up 3 Bytes of DRAM.
+// This vaue has a surprisingly big impact on drawing performance,
+// play around with it to find the sweetspot for your application.
+// WARNING: If this value is set very small, and the spi transaction queue
+//          is not large enough, the queue will overflow without notice.
+//TODO: actually add this configuration option
+#ifdef CONFIG_TFT_REPEAT_BUFFER_SIZE
+    #define TFT_REPEAT_BUFFER_SIZE CONFIG_TFT_REPEAT_BUFFER_SIZE
+#else
+    //the default is to take up 1.5 kB
+    #define TFT_REPEAT_BUFFER_SIZE 500
+#endif
 
 // ##############################################################
 // #### Global variables                                     ####
@@ -281,8 +302,8 @@ extern int tft_height;
 extern uint8_t tft_disp_type;
 
 // ==== Spi device handles for display and touch screen =========
-extern spi_lobo_device_handle_t tft_disp_spi;
-extern spi_lobo_device_handle_t tft_ts_spi;
+extern spi_device_handle_t tft_disp_spi;
+extern spi_device_handle_t tft_ts_spi;
 
 // ##############################################################
 
@@ -693,30 +714,34 @@ static const uint8_t Rcmd3[] = {
 // ==== Public functions =========================================================
 
 // == Low level functions; usually not used directly ==
-esp_err_t wait_trans_finish(uint8_t free_line);
 void disp_spi_transfer_cmd(int8_t cmd);
 void disp_spi_transfer_cmd_data(int8_t cmd, uint8_t *data, uint32_t len);
-void drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel);
-void send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf);
+void drawPixel_start(int16_t x, int16_t y, color_t color);
+void drawPixel_finish();
+void drawPixel(int16_t x, int16_t y, color_t color);
+void send_data_start(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf);
+void send_data_finish();
+void FORCE_INLINE_ATTR send_data(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf){
+    send_data_start(x1, y1, x2, y2, len, buf);
+    send_data_finish();
+}
 void TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t data, uint32_t len);
 int read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, uint8_t set_sp);
 color_t readPixel(int16_t x, int16_t y);
-int touch_get_data(uint8_t type);
+//int touch_get_data(uint8_t type);
 
+// Declaration of Callback for the user SPI initialization to include
+void TFT_transaction_begin_callback(spi_transaction_t*);
 
-// Deactivate display's CS line
+// deselect the display spi device
 //========================
+// in previous versions this was mandatory, now it is suggested for sending many consecutive transactions
 esp_err_t disp_deselect();
 
-// Activate display's CS line and configure SPI interface if necessary
+// select the display spi device
 //======================
+// in previous versions this was mandatory, now it is suggested for sending many consecutive transactions
 esp_err_t disp_select();
-
-
-// Find maximum spi clock for successful read from display RAM
-// ** Must be used AFTER the display is initialized **
-//======================
-uint32_t find_rd_speed();
 
 
 // Change the screen rotation.
@@ -737,14 +762,15 @@ void TFT_PinsInit();
 //======================
 void TFT_display_init();
 
+//TODO: re enable this functionality, but i don't have a boart to test this on
 //===================
-void stmpe610_Init();
+//void stmpe610_Init();
 
 //============================================================
-int stmpe610_get_touch(uint16_t *x, uint16_t *y, uint16_t *z);
+//int stmpe610_get_touch(uint16_t *x, uint16_t *y, uint16_t *z);
 
 //========================
-uint32_t stmpe610_getID();
+//uint32_t stmpe610_getID();
 
 // ===============================================================================
 

@@ -32,8 +32,8 @@
 
 
 // ==========================================================
-// Define which spi bus to use TFT_VSPI_HOST or TFT_HSPI_HOST
-#define SPI_BUS TFT_HSPI_HOST
+// Define which spi bus to use VSPI_HOST or HSPI_HOST
+#define SPI_BUS HSPI_HOST
 // ==========================================================
 
 
@@ -173,7 +173,8 @@ static void _checkTime()
 		last_fg = tft_fg;
 		tft_fg = TFT_YELLOW;
 		tft_bg = (color_t){ 64, 64, 64 };
-		TFT_setFont(DEFAULT_FONT, NULL);
+		if (tft_width < 240) TFT_setFont(DEF_SMALL_FONT, NULL);
+		else TFT_setFont(DEFAULT_FONT, NULL);
 
 		TFT_fillRect(1, tft_height-TFT_getfontheight()-8, tft_width-3, TFT_getfontheight()+6, tft_bg);
 		TFT_print(tmp_buff, CENTER, tft_height-TFT_getfontheight()-5);
@@ -356,7 +357,6 @@ static void test_times() {
 			for (int n=0; n<1000; n++) {
 				if (gsline) memcpy(color_line, gsline, tft_width*3);
 				send_data(0 + TFT_STATIC_X_OFFSET, 40+(n&63) + TFT_STATIC_Y_OFFSET, tft_dispWin.x2-tft_dispWin.x1 + TFT_STATIC_X_OFFSET , 40+(n&63) + TFT_STATIC_Y_OFFSET, (uint32_t)(tft_dispWin.x2-tft_dispWin.x1+1), color_line);
-				wait_trans_finish(1);
 			}
 			t2 = clock() - tstart;
 			disp_deselect();
@@ -613,7 +613,7 @@ static void pixel_demo()
 	while ((clock() < end_time) && (Wait(0))) {
 		x = rand_interval(0, tft_dispWin.x2);
 		y = rand_interval(0, tft_dispWin.y2);
-		TFT_drawPixel(x,y,random_color(),1);
+		TFT_drawPixel(x,y,random_color());
 		n++;
 	}
 	sprintf(tmp_buff, "%d PIXELS", n);
@@ -1271,9 +1271,9 @@ void app_main()
 
     // ====  CONFIGURE SPI DEVICES(s)  ====================================================================================
 
-    spi_lobo_device_handle_t spi;
+    spi_device_handle_t spi;
 	
-    spi_lobo_bus_config_t buscfg={
+    spi_bus_config_t buscfg={
         .miso_io_num=PIN_NUM_MISO,				// set SPI MISO pin
         .mosi_io_num=PIN_NUM_MOSI,				// set SPI MOSI pin
         .sclk_io_num=PIN_NUM_CLK,				// set SPI CLK pin
@@ -1281,28 +1281,47 @@ void app_main()
         .quadhd_io_num=-1,
 		.max_transfer_sz = 6*1024,
     };
-    spi_lobo_device_interface_config_t devcfg={
-        .clock_speed_hz=8000000,                // Initial clock out at 8 MHz
+    spi_device_interface_config_t devcfg = {
+		.command_bits = 0,
+		.address_bits = 0,
+		//TODO: check what amount of dummy bits are needed for reading, i have no board to test this on
+		.dummy_bits = 0,
         .mode=0,                                // SPI mode 0
-        .spics_io_num=-1,                       // we will use external CS pin
-		.spics_ext_io_num=PIN_NUM_CS,           // external CS pin
-		.flags=LB_SPI_DEVICE_HALFDUPLEX,        // ALWAYS SET  to HALF DUPLEX MODE!! for display spi
+        //the following timings are based on the ST7789V datasheet,
+        //and the assumption that the circuit does not add too much delay
+        //your milage may vary heavily, adjust accordingly
+        .cs_ena_pretrans = 2,                   // set CS 2 Cycles before starting transmission
+        .cs_ena_posttrans = 2,                  // hold CS for 2 Cycles after transmissions
+        .clock_speed_hz=DEFAULT_SPI_CLOCK,      // Initial clock out at 8 MHz
+        .spics_io_num=PIN_NUM_CS,               // external CS pin
+        //TODO: check if .input_delay_ns is needed
+        .flags=SPI_DEVICE_HALFDUPLEX,           // ALWAYS SET  to HALF DUPLEX MODE!! for display spi
+        .queue_size = (							// transmission queue size
+			(DEFAULT_TFT_DISPLAY_HEIGHT
+			 *DEFAULT_TFT_DISPLAY_WIDTH)
+			 /TFT_REPEAT_BUFFER_SIZE)
+			 + 10, //just a bit more for good measure
+		//the queue size has to be large enougth to fit at least
+		//((resolution_h*resolution_v)/tft_repeat_buffer_size)
+		//transmissions
+        .pre_cb = &TFT_transaction_begin_callback,
+        .post_cb = NULL,
     };
 
 #if USE_TOUCH == TOUCH_TYPE_XPT2046
-    spi_lobo_device_handle_t tsspi = NULL;
+    spi_device_handle_t tsspi = NULL;
 
-    spi_lobo_device_interface_config_t tsdevcfg={
+    spi_device_interface_config_t tsdevcfg={
         .clock_speed_hz=2500000,                //Clock out at 2.5 MHz
         .mode=0,                                //SPI mode 0
         .spics_io_num=PIN_NUM_TCS,              //Touch CS pin
 		.spics_ext_io_num=-1,                   //Not using the external CS
-		//.command_bits=8,                        //1 byte command
+		//.command_bits=8,                      //1 byte command
     };
 #elif USE_TOUCH == TOUCH_TYPE_STMPE610
-    spi_lobo_device_handle_t tsspi = NULL;
+    spi_device_handle_t tsspi = NULL;
 
-    spi_lobo_device_interface_config_t tsdevcfg={
+    spi_device_interface_config_t tsdevcfg={
         .clock_speed_hz=1000000,                //Clock out at 1 MHz
         .mode=STMPE610_SPI_MODE,                //SPI mode 0
         .spics_io_num=PIN_NUM_TCS,              //Touch CS pin
@@ -1327,36 +1346,27 @@ void app_main()
 	// ==================================================================
 	// ==== Initialize the SPI bus and attach the LCD to the SPI bus ====
 
-	ret=spi_lobo_bus_add_device(SPI_BUS, &buscfg, &devcfg, &spi);
-    assert(ret==ESP_OK);
+    ret = spi_bus_initialize(SPI_BUS, &buscfg, 1 /* dma chan */); //TODO: check if this use of the dma channel is valid
+    ESP_ERROR_CHECK(ret);
+	ret = spi_bus_add_device(SPI_BUS, &devcfg, &spi);
+    ESP_ERROR_CHECK(ret);
 	printf("SPI: display device added to spi bus (%d)\r\n", SPI_BUS);
 	tft_disp_spi = spi;
 
-	// ==== Test select/deselect ====
-	ret = spi_lobo_device_select(spi, 1);
-    assert(ret==ESP_OK);
-	ret = spi_lobo_device_deselect(spi);
-    assert(ret==ESP_OK);
-
-	printf("SPI: attached display device, speed=%u\r\n", spi_lobo_get_speed(spi));
-	printf("SPI: bus uses native pins: %s\r\n", spi_lobo_uses_native_pins(spi) ? "true" : "false");
+    //TODO: find replacement for gettting these values
+	//printf("SPI: attached display device, speed=%u\r\n", spi_get_speed(spi));
+	//printf("SPI: bus uses native pins: %s\r\n", spi_uses_native_pins(spi) ? "true" : "false");
 
 #if USE_TOUCH > TOUCH_TYPE_NONE
 	// =====================================================
     // ==== Attach the touch screen to the same SPI bus ====
 
-	ret=spi_lobo_bus_add_device(SPI_BUS, &buscfg, &tsdevcfg, &tsspi);
-    assert(ret==ESP_OK);
+	ret=spi_bus_add_device(SPI_BUS, &tsdevcfg, &tsspi);
+    ESP_ERROR_CHECK(ret);
 	printf("SPI: touch screen device added to spi bus (%d)\r\n", SPI_BUS);
 	tft_ts_spi = tsspi;
 
-	// ==== Test select/deselect ====
-	ret = spi_lobo_device_select(tsspi, 1);
-    assert(ret==ESP_OK);
-	ret = spi_lobo_device_deselect(tsspi);
-    assert(ret==ESP_OK);
-
-	printf("SPI: attached TS device, speed=%u\r\n", spi_lobo_get_speed(tsspi));
+	printf("SPI: attached TS device, speed=%u\r\n", spi_get_speed(tsspi));
 #endif
 
 	// ================================
@@ -1374,14 +1384,6 @@ void app_main()
     uint32_t tver = stmpe610_getID();
     printf("STMPE touch initialized, ver: %04x - %02x\r\n", tver >> 8, tver & 0xFF);
     #endif
-	
-	// ---- Detect maximum read speed ----
-	tft_max_rdclock = find_rd_speed();
-	printf("SPI: Max rd speed = %u\r\n", tft_max_rdclock);
-
-    // ==== Set SPI clock used for display operations ====
-	spi_lobo_set_speed(spi, DEFAULT_SPI_CLOCK);
-	printf("SPI: Changed speed to %u\r\n", spi_lobo_get_speed(spi));
 
     printf("\r\n---------------------\r\n");
 	printf("Graphics demo started\r\n");

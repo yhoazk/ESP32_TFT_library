@@ -138,16 +138,14 @@ int TFT_compare_colors(color_t c1, color_t c2)
 
 // draw color pixel on screen
 //------------------------------------------------------------------------
-static void _drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel) {
-
+static void _drawPixel(int16_t x, int16_t y, color_t color) {
 	if ((x < tft_dispWin.x1) || (y < tft_dispWin.y1) || (x > tft_dispWin.x2) || (y > tft_dispWin.y2)) return;
-	drawPixel(x, y, color, sel);
+	drawPixel(x, y, color);
 }
 
 //====================================================================
-void TFT_drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel) {
-
-	_drawPixel(x+tft_dispWin.x1, y+tft_dispWin.y1, color, sel);
+void TFT_drawPixel(int16_t x, int16_t y, color_t color) {
+	_drawPixel(x+tft_dispWin.x1, y+tft_dispWin.y1, color);
 }
 
 //===========================================
@@ -236,7 +234,7 @@ static void _drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t co
       err -= dy;
       if (err < 0) {
         err += dx;
-        if (dlen == 1) _drawPixel(y0, xs, color, 1);
+        if (dlen == 1) _drawPixel(y0, xs, color);
         else _drawFastVLine(y0, xs, dlen, color);
         dlen = 0; y0 += ystep; xs = x0 + 1;
       }
@@ -250,7 +248,7 @@ static void _drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, color_t co
       err -= dy;
       if (err < 0) {
         err += dx;
-        if (dlen == 1) _drawPixel(xs, y0, color, 1);
+        if (dlen == 1) _drawPixel(xs, y0, color);
         else _drawFastHLine(xs, y0, dlen, color);
         dlen = 0; y0 += ystep; xs = x0 + 1;
       }
@@ -343,20 +341,20 @@ static void drawCircleHelper(int16_t x0, int16_t y0, int16_t r, uint8_t cornerna
 		ddF_x += 2;
 		f += ddF_x;
 		if (cornername & 0x4) {
-			_drawPixel(x0 + x, y0 + y, color, 0);
-			_drawPixel(x0 + y, y0 + x, color, 0);
+			_drawPixel(x0 + x, y0 + y, color);
+			_drawPixel(x0 + y, y0 + x, color);
 		}
 		if (cornername & 0x2) {
-			_drawPixel(x0 + x, y0 - y, color, 0);
-			_drawPixel(x0 + y, y0 - x, color, 0);
+			_drawPixel(x0 + x, y0 - y, color);
+			_drawPixel(x0 + y, y0 - x, color);
 		}
 		if (cornername & 0x8) {
-			_drawPixel(x0 - y, y0 + x, color, 0);
-			_drawPixel(x0 - x, y0 + y, color, 0);
+			_drawPixel(x0 - y, y0 + x, color);
+			_drawPixel(x0 - x, y0 + y, color);
 		}
 		if (cornername & 0x1) {
-			_drawPixel(x0 - y, y0 - x, color, 0);
-			_drawPixel(x0 - x, y0 - y, color, 0);
+			_drawPixel(x0 - y, y0 - x, color);
+			_drawPixel(x0 - x, y0 - y, color);
 		}
 	}
 	disp_deselect();
@@ -585,10 +583,10 @@ void TFT_drawCircle(int16_t x, int16_t y, int radius, color_t color) {
 	int y1 = radius;
 
 	disp_select();
-	_drawPixel(x, y + radius, color, 0);
-	_drawPixel(x, y - radius, color, 0);
-	_drawPixel(x + radius, y, color, 0);
-	_drawPixel(x - radius, y, color, 0);
+	_drawPixel(x, y + radius, color);
+	_drawPixel(x, y - radius, color);
+	_drawPixel(x + radius, y, color);
+	_drawPixel(x - radius, y, color);
 	while(x1 < y1) {
 		if (f >= 0) {
 			y1--;
@@ -598,14 +596,14 @@ void TFT_drawCircle(int16_t x, int16_t y, int radius, color_t color) {
 		x1++;
 		ddF_x += 2;
 		f += ddF_x;
-		_drawPixel(x + x1, y + y1, color, 0);
-		_drawPixel(x - x1, y + y1, color, 0);
-		_drawPixel(x + x1, y - y1, color, 0);
-		_drawPixel(x - x1, y - y1, color, 0);
-		_drawPixel(x + y1, y + x1, color, 0);
-		_drawPixel(x - y1, y + x1, color, 0);
-		_drawPixel(x + y1, y - x1, color, 0);
-		_drawPixel(x - y1, y - x1, color, 0);
+		_drawPixel(x + x1, y + y1, color);
+		_drawPixel(x - x1, y + y1, color);
+		_drawPixel(x + x1, y - y1, color);
+		_drawPixel(x - x1, y - y1, color);
+		_drawPixel(x + y1, y + x1, color);
+		_drawPixel(x - y1, y + x1, color);
+		_drawPixel(x + y1, y - x1, color);
+		_drawPixel(x - y1, y - x1, color);
 	}
   disp_deselect();
 }
@@ -624,13 +622,13 @@ static void _draw_ellipse_section(uint16_t x, uint16_t y, uint16_t x0, uint16_t 
 {
 	disp_select();
     // upper right
-    if ( option & TFT_ELLIPSE_UPPER_RIGHT ) _drawPixel(x0 + x, y0 - y, color, 0);
+    if ( option & TFT_ELLIPSE_UPPER_RIGHT ) _drawPixel(x0 + x, y0 - y, color);
     // upper left
-    if ( option & TFT_ELLIPSE_UPPER_LEFT ) _drawPixel(x0 - x, y0 - y, color, 0);
+    if ( option & TFT_ELLIPSE_UPPER_LEFT ) _drawPixel(x0 - x, y0 - y, color);
     // lower right
-    if ( option & TFT_ELLIPSE_LOWER_RIGHT ) _drawPixel(x0 + x, y0 + y, color, 0);
+    if ( option & TFT_ELLIPSE_LOWER_RIGHT ) _drawPixel(x0 + x, y0 + y, color);
     // lower left
-    if ( option & TFT_ELLIPSE_LOWER_LEFT ) _drawPixel(x0 - x, y0 + y, color, 0);
+    if ( option & TFT_ELLIPSE_LOWER_LEFT ) _drawPixel(x0 - x, y0 + y, color);
 	disp_deselect();
 }
 
@@ -860,7 +858,7 @@ static void _fillArcOffsetted(uint16_t cx, uint16_t cy, uint16_t radius, uint16_
 				(y == 0 && start == 0 && x > 0)
 				)
 				)
-				_drawPixel(cx+x, cy+y, color, 0);
+				_drawPixel(cx+x, cy+y, color);
 		}
 	}
 	disp_deselect();
@@ -1610,7 +1608,7 @@ static int printProportionalChar(int x, int y) {
 			if ((ch & mask) !=0) {
 				cx = (uint16_t)(x+fontChar.xOffset+i);
 				cy = (uint16_t)(y+j+fontChar.adjYOffset);
-				_drawPixel(cx, cy, tft_fg, 0);
+				_drawPixel(cx, cy, tft_fg);
 			}
 			mask >>= 1;
 		}
@@ -1638,26 +1636,22 @@ static void printChar(uint8_t c, int x, int y) {
 		len = tft_cfont.x_size * tft_cfont.y_size;
 		color_t *color_line = heap_caps_malloc(len*3, MALLOC_CAP_DMA);
 		if (color_line) {
-			// fill with background color
-			for (int n = 0; n < len; n++) {
-				color_line[n] = tft_bg;
-			}
-			// set character pixels to foreground color
+			// set character pixels
 			for (j=0; j<tft_cfont.y_size; j++) {
 				for (k=0; k < fz; k++) {
 					ch = tft_cfont.font[temp+k];
 					mask=0x80;
 					for (i=0; i<8; i++) {
-						if ((ch & mask) !=0) color_line[(j*tft_cfont.x_size) + (i+(k*8))] = tft_fg;
+						color_t pix_color = tft_bg;
+						if ((ch & mask) !=0) pix_color = tft_fg;
+						color_line[(j*tft_cfont.x_size) + (i+(k*8))] = pix_color;
 						mask >>= 1;
 					}
 				}
 				temp += (fz);
 			}
 			// send to display in one transaction
-			disp_select();
 			send_data(x, y, x+tft_cfont.x_size-1, y+tft_cfont.y_size-1, len, color_line);
-			disp_deselect();
 			free(color_line);
 
 			return;
@@ -1666,6 +1660,8 @@ static void printChar(uint8_t c, int x, int y) {
 
 	if (!tft_font_transparent) _fillRect(x, y, tft_cfont.x_size, tft_cfont.y_size, tft_bg);
 
+	// send character by individual pixel if (for whatever inexplicable reason) buffering is not enabled,
+	// or background transparency is wanted
 	disp_select();
 	for (j=0; j<tft_cfont.y_size; j++) {
 		for (k=0; k < fz; k++) {
@@ -1675,7 +1671,7 @@ static void printChar(uint8_t c, int x, int y) {
 				if ((ch & mask) !=0) {
 					cx = (uint16_t)(x+i+(k*8));
 					cy = (uint16_t)(y+j);
-					_drawPixel(cx, cy, tft_fg, 0);
+					_drawPixel(cx, cy, tft_fg);
 				}
 				mask >>= 1;
 			}
@@ -1706,8 +1702,8 @@ static int rotatePropChar(int x, int y, int offset) {
       int newX = (int)(x + (((offset + i) * cos_radian) - ((j+fontChar.adjYOffset)*sin_radian)));
       int newY = (int)(y + (((j+fontChar.adjYOffset) * cos_radian) + ((offset + i) * sin_radian)));
 
-      if ((ch & mask) != 0) _drawPixel(newX,newY,tft_fg, 0);
-      else if (!tft_font_transparent) _drawPixel(newX,newY,tft_bg, 0);
+      if ((ch & mask) != 0) _drawPixel(newX,newY,tft_fg);
+      else if (!tft_font_transparent) _drawPixel(newX,newY,tft_bg);
 
       mask >>= 1;
     }
@@ -1741,8 +1737,8 @@ static void rotateChar(uint8_t c, int x, int y, int pos) {
         newx=(int)(x+(((i+(zz*8)+(pos*tft_cfont.x_size))*cos_radian)-((j)*sin_radian)));
         newy=(int)(y+(((j)*cos_radian)+((i+(zz*8)+(pos*tft_cfont.x_size))*sin_radian)));
 
-        if ((ch & mask) != 0) _drawPixel(newx,newy,tft_fg, 0);
-        else if (!tft_font_transparent) _drawPixel(newx,newy,tft_bg, 0);
+        if ((ch & mask) != 0) _drawPixel(newx,newy,tft_fg);
+        else if (!tft_font_transparent) _drawPixel(newx,newy,tft_bg);
         mask >>= 1;
       }
     }
@@ -2044,17 +2040,8 @@ void TFT_print(char *st, int x, int y) {
 // Input: m new rotation value (0 to 3)
 //=================================
 void TFT_setRotation(uint8_t rot) {
-    if (rot > 3) {
-        uint8_t madctl = (rot & 0xF8); // for testing, manually set MADCTL register
-		if (disp_select() == ESP_OK) {
-			disp_spi_transfer_cmd_data(TFT_MADCTL, &madctl, 1);
-			disp_deselect();
-		}
-    }
-	else {
-		tft_orientation = rot;
-        _tft_setRotation(rot);
-	}
+	tft_orientation = rot;
+	_tft_setRotation(rot);
 
 	tft_dispWin.x1 = TFT_STATIC_X_OFFSET;
 	tft_dispWin.y1 = TFT_STATIC_Y_OFFSET;
@@ -2068,22 +2055,17 @@ void TFT_setRotation(uint8_t rot) {
 // Input: i 0 to disable inversion; non-zero to enable inversion
 //==========================================
 void TFT_invertDisplay(const uint8_t mode) {
-    if (disp_select() == ESP_OK) {
-        if ( mode == INVERT_ON ) disp_spi_transfer_cmd(TFT_INVONN);
-        else disp_spi_transfer_cmd(TFT_INVOFF);
-        disp_deselect();
-    }
+	if ( mode == INVERT_ON ) disp_spi_transfer_cmd(TFT_INVONN);
+	else disp_spi_transfer_cmd(TFT_INVOFF);
 }
 
 // Select gamma curve
 // Input: gamma = 0~3
 //==================================
 void TFT_setGammaCurve(uint8_t gm) {
-    uint8_t gamma_curve = (uint8_t)1 << (gm & (uint8_t)0x03);
-	if (disp_select() == ESP_OK) {
-		disp_spi_transfer_cmd_data(TFT_CMD_GAMMASET, &gamma_curve, 1);
-		disp_deselect();
-	}
+	uint8_t gamma_curve = (uint8_t)1 << (gm & (uint8_t)0x03);
+	//only works with non queueing disp_spi_transfer_cmd_data() implementation
+	disp_spi_transfer_cmd_data(TFT_CMD_GAMMASET, &gamma_curve, 1);
 }
 
 //===========================================================
@@ -2357,12 +2339,10 @@ static UINT tjd_output (
 				else src += 3; // skip
 			}
 		}
-		wait_trans_finish(1);
 		send_data(dleft, dtop, dright, dbottom, len, dev->linbuf[dev->linbuf_idx]);
 		dev->linbuf_idx = ((dev->linbuf_idx + 1) & 1);
 	}
 	else {
-		wait_trans_finish(1);
 		printf("Data size error: %d jpg: (%d,%d,%d,%d) disp: (%d,%d,%d,%d)\r\n", len, left,top,right,bottom, dleft,dtop,dright,dbottom);
 		return 0;  // stop decompression
 	}
@@ -2729,7 +2709,6 @@ int TFT_bmp_image(int x, int y, uint8_t scale, char *fname, uint8_t *imgbuf, int
 			}
 		}
 
-		wait_trans_finish(1);
 		send_data(disp_xstart, disp_yend, disp_xend, disp_yend, img_xlen, (color_t *)line_buf[lb_idx]);
 		lb_idx = (lb_idx + 1) & 1;  // change buffer
 
@@ -2817,7 +2796,7 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 static int TFT_read_touch_xpt2046(int *x, int* y)
 {
 	int res = 0, result = -1;
-	if (spi_lobo_device_select(tft_ts_spi, 0) != ESP_OK) return 0;
+	if (spi_device_select(tft_ts_spi, 0) != ESP_OK) return 0;
 
     result = tp_get_data_xpt2046(0xB0, 3);  // Z; pressure; touch detect
 	if (result <= 50) goto exit;
@@ -2834,7 +2813,7 @@ static int TFT_read_touch_xpt2046(int *x, int* y)
 	*y = result;
 	res = 1;
 exit:
-	spi_lobo_device_deselect(tft_ts_spi);
+	spi_device_deselect(tft_ts_spi);
 	return res;
 }
 #endif

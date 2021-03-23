@@ -143,12 +143,11 @@ extern const color_t TFT_PINK;
  *       x: horizontal position
  *       y: vertical position
  *   color: pixel color
- *     sel: if not 0 activate CS before and deactivat after sending pixel data to display
- *          when sending multiple pixels it is faster to activate the CS first,
- *          send all pixels an deactivate CS after all pixela was sent
 */
 //-------------------------------------------------------------------
-void TFT_drawPixel(int16_t x, int16_t y, color_t color, uint8_t sel);
+// CHANGE NOTICE: because with the use of the upstream spi_master driver it is no longer nessecairy,
+//                the uint8_t sel argument was removed, you can just remove it from your code
+void TFT_drawPixel(int16_t x, int16_t y, color_t color);
 
 /*
  * Read pixel color value from display GRAM at given x,y coordinates
