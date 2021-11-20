@@ -17,6 +17,7 @@ GPATH
 .#*
 \#*#
 
+.vscode/*
 sdkconfig
 sdkconfig.old
 sdkconfig.lobo
