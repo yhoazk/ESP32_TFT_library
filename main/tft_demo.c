@@ -19,9 +19,15 @@
 #include "tft.h"
 #include "esp_spiffs.h"
 #include "dirent.h"
+#include "mqtt_handler.h"
+
+/*#include "protocol_examples_common.h"
+#include "lwip/sockets.h"
+#include "lwip/dns.h"
+#include "lwip/netdb.h"
+*/
 
 #ifdef CONFIG_EXAMPLE_USE_WIFI
-
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "esp_sntp.h"
@@ -147,13 +153,22 @@ static int obtain_time(void)
         ESP_LOGI(tag, "System time is set.");
     }
 
-    ESP_ERROR_CHECK( esp_wifi_stop() );
+  //  ESP_ERROR_CHECK( esp_wifi_stop() );
     return res;
 }
 
 #endif  //CONFIG_EXAMPLE_USE_WIFI
 //==================================================================================
 
+/* Selects font size depending on the width of the sring */
+static void set_font () {
+
+    if (tft_width < 240) {
+        TFT_setFont(DEF_SMALL_FONT, NULL);
+    } else  {
+        TFT_setFont(DEFAULT_FONT, NULL);
+    }
+}
 
 //----------------------
 static void _checkTime()
@@ -173,8 +188,7 @@ static void _checkTime()
         last_fg = tft_fg;
         tft_fg = TFT_YELLOW;
         tft_bg = (color_t){ 64, 64, 64 };
-        if (tft_width < 240) TFT_setFont(DEF_SMALL_FONT, NULL);
-        else TFT_setFont(DEFAULT_FONT, NULL);
+        set_font();
 
         TFT_fillRect(1, tft_height-TFT_getfontheight()-8, tft_width-3, TFT_getfontheight()+6, tft_bg);
         TFT_print(tmp_buff, CENTER, tft_height-TFT_getfontheight()-5);
@@ -187,24 +201,8 @@ static void _checkTime()
     }
 }
 
-/*
-//----------------------
-static int _checkTouch()
-{
-    int tx, ty;
-    if (TFT_read_touch(&tx, &ty, 0)) {
-        while (TFT_read_touch(&tx, &ty, 1)) {
-            vTaskDelay(20 / portTICK_RATE_MS);
-        }
-        return 1;
-    }
-    return 0;
-}
-*/
-
 //---------------------
-static int Wait(int ms)
-{
+static int Wait(int ms) {
     uint8_t tm = 1;
     if (ms < 0) {
         tm = 0;
@@ -213,8 +211,7 @@ static int Wait(int ms)
     if (ms <= 50) {
         vTaskDelay(ms / portTICK_RATE_MS);
         //if (_checkTouch()) return 0;
-    }
-    else {
+    } else {
         for (int n=0; n<ms; n += 50) {
             vTaskDelay(50 / portTICK_RATE_MS);
             if (tm) _checkTime();
@@ -225,8 +222,7 @@ static int Wait(int ms)
 }
 
 //-------------------------------------------------------------------
-static unsigned int rand_interval(unsigned int min, unsigned int max)
-{
+static unsigned int rand_interval(unsigned int min, unsigned int max) {
     int r;
     const unsigned int range = 1 + max - min;
     const unsigned int buckets = RAND_MAX / range;
@@ -235,8 +231,7 @@ static unsigned int rand_interval(unsigned int min, unsigned int max)
     /* Create equal size buckets all in a row, then fire randomly towards
      * the buckets until you land in one of them. All buckets are equally
      * likely. If you land off the end of the line of buckets, try again. */
-    do
-    {
+    do {
         r = rand();
     } while (r >= limit);
 
@@ -246,7 +241,6 @@ static unsigned int rand_interval(unsigned int min, unsigned int max)
 // Generate random color
 //-----------------------------
 static color_t random_color() {
-
     color_t color;
     color.r  = (uint8_t)rand_interval(8,252);
     color.g  = (uint8_t)rand_interval(8,252);
@@ -255,11 +249,9 @@ static color_t random_color() {
 }
 
 //---------------------
-static void _dispTime()
-{
+static void _dispTime() {
     Font curr_font = tft_cfont;
-    if (tft_width < 240) TFT_setFont(DEF_SMALL_FONT, NULL);
-    else TFT_setFont(DEFAULT_FONT, NULL);
+    set_font();
 
     time(&time_now);
     time_last = time_now;
@@ -270,17 +262,16 @@ static void _dispTime()
     tft_cfont = curr_font;
 }
 
+
 //---------------------------------
-static void disp_header(char *info)
-{
+static void disp_header(char *info) {
     TFT_fillScreen(TFT_BLACK);
     TFT_resetclipwin();
 
     tft_fg = TFT_YELLOW;
     tft_bg = (color_t){ 64, 64, 64 };
 
-    if (tft_width < 240) TFT_setFont(DEF_SMALL_FONT, NULL);
-    else TFT_setFont(DEFAULT_FONT, NULL);
+    set_font();
     TFT_fillRect(0, 0, tft_width-1, TFT_getfontheight()+8, tft_bg);
     TFT_drawRect(0, 0, tft_width-1, TFT_getfontheight()+8, TFT_CYAN);
 
@@ -294,9 +285,18 @@ static void disp_header(char *info)
     TFT_setclipwin(0,TFT_getfontheight()+9, tft_width-1, tft_height-TFT_getfontheight()-10);
 }
 
+static void btc_usd() {
+    printf("Demo: %s\r\n", __func__);
+
+}
+
+static void eur_mxn() {
+    printf("Demo: %s\r\n", __func__);
+
+}
+
 //---------------------------------------------
-static void update_header(char *hdr, char *ftr)
-{
+static void update_header(char *hdr, char *ftr) {
     color_t last_fg, last_bg;
 
     TFT_saveClipWin();
@@ -307,8 +307,7 @@ static void update_header(char *hdr, char *ftr)
     last_fg = tft_fg;
     tft_fg = TFT_YELLOW;
     tft_bg = (color_t){ 64, 64, 64 };
-    if (tft_width < 240) TFT_setFont(DEF_SMALL_FONT, NULL);
-    else TFT_setFont(DEFAULT_FONT, NULL);
+    set_font();
 
     if (hdr) {
         TFT_fillRect(1, 1, tft_width-3, TFT_getfontheight()+6, tft_bg);
@@ -331,6 +330,7 @@ static void update_header(char *hdr, char *ftr)
 //------------------------
 static void test_times() {
 
+    printf("Demo: %s\r\n", __func__);
     if (doprint) {
         uint32_t tstart, t1, t2;
         disp_header("TIMINGS");
@@ -376,6 +376,7 @@ static void test_times() {
 static void disp_images() {
     uint32_t tstart;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("JPEG IMAGES");
 
     if (spiffs_is_mounted) {
@@ -415,11 +416,11 @@ static void disp_images() {
 }
 
 //---------------------
-static void font_demo()
-{
+static void font_demo() {
     int x, y, n;
     uint32_t end_time;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("FONT DEMO");
 
     end_time = clock() + GDEMO_TIME;
@@ -563,11 +564,11 @@ static void font_demo()
 }
 
 //---------------------
-static void rect_demo()
-{
+static void rect_demo() {
     int x, y, w, h, n;
 
     disp_header("RECTANGLE DEMO");
+    printf("Demo: %s\r\n", __func__);
 
     uint32_t end_time = clock() + GDEMO_TIME;
     n = 0;
@@ -602,10 +603,10 @@ static void rect_demo()
 }
 
 //----------------------
-static void pixel_demo()
-{
+static void pixel_demo() {
     int x, y, n;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("DRAW PIXEL DEMO");
 
     uint32_t end_time = clock() + GDEMO_TIME;
@@ -622,11 +623,11 @@ static void pixel_demo()
 }
 
 //---------------------
-static void line_demo()
-{
+static void line_demo() {
     int x1, y1, x2, y2, n;
 
     disp_header("LINE DEMO");
+    printf("Demo: %s\r\n", __func__);
 
     uint32_t end_time = clock() + GDEMO_TIME;
     n = 0;
@@ -644,10 +645,10 @@ static void line_demo()
 }
 
 //----------------------
-static void aline_demo()
-{
+static void aline_demo() {
     int x, y, len, angle, n;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("LINE BY ANGLE DEMO");
 
     x = (tft_dispWin.x2 - tft_dispWin.x1) / 2;
@@ -682,11 +683,11 @@ static void aline_demo()
 }
 
 //--------------------
-static void arc_demo()
-{
+static void arc_demo() {
     uint16_t x, y, r, th, n, i;
     float start, end;
     color_t color, fillcolor;
+    printf("Demo: %s\r\n", __func__);
 
     disp_header("ARC DEMO");
 
@@ -744,10 +745,10 @@ static void arc_demo()
 }
 
 //-----------------------
-static void circle_demo()
-{
+static void circle_demo() {
     int x, y, r, n;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("CIRCLE DEMO");
 
     uint32_t end_time = clock() + GDEMO_TIME;
@@ -783,10 +784,10 @@ static void circle_demo()
 }
 
 //------------------------
-static void ellipse_demo()
-{
+static void ellipse_demo() {
     int x, y, rx, ry, n;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("ELLIPSE DEMO");
 
     uint32_t end_time = clock() + GDEMO_TIME;
@@ -851,6 +852,7 @@ static void triangle_demo()
 {
     int x1, y1, x2, y2, x3, y3, n;
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("TRIANGLE DEMO");
 
     uint32_t end_time = clock() + GDEMO_TIME;
@@ -890,14 +892,14 @@ static void triangle_demo()
 }
 
 //---------------------
-static void poly_demo()
-{
+static void poly_demo() {
     uint16_t x, y, rot, oldrot;
     int i, n, r;
     uint8_t sides[6] = {3, 4, 5, 6, 8, 10};
     color_t color[6] = {TFT_WHITE, TFT_CYAN, TFT_RED,       TFT_BLUE,     TFT_YELLOW,     TFT_ORANGE};
     color_t fill[6]  = {TFT_BLUE,  TFT_NAVY,   TFT_DARKGREEN, TFT_DARKGREY, TFT_LIGHTGREY, TFT_OLIVE};
 
+    printf("Demo: %s\r\n", __func__);
     disp_header("POLYGON DEMO");
 
     x = (tft_dispWin.x2 - tft_dispWin.x1) / 2;
@@ -948,8 +950,7 @@ static void poly_demo()
 }
 
 //----------------------
-static void touch_demo()
-{
+static void touch_demo() {
 #if USE_TOUCH
     int tx, ty, ltx, lty, doexit = 0;
 
@@ -1003,7 +1004,9 @@ void tft_demo() {
     tft_text_wrap = 0;
     tft_font_transparent = 0;
     tft_font_forceFixed = 0;
+    printf("Demo: %s\r\n", __func__);
     TFT_resetclipwin();
+
 
     tft_image_debug = 0;
 
@@ -1100,137 +1103,14 @@ void tft_demo() {
         pixel_demo();
         disp_images();
         touch_demo();
+        btc_usd();
+        eur_mxn();
 
         _demo_pass++;
     }
 }
 
-/*
-// ================== TEST SD CARD ==========================================
-
-#include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdspi_host.h"
-#include "sdmmc_cmd.h"
-
-// This example can use SDMMC and SPI peripherals to communicate with SD card.
-// SPI mode IS USED
-
-// When testing SD and SPI modes, keep in mind that once the card has been
-// initialized in SPI mode, it can not be reinitialized in SD mode without
-// toggling power to the card.
-
-// Pin mapping when using SPI mode.
-// With this mapping, SD card can be used both in SPI and 1-line SD mode.
-// Note that a pull-up on CS line is required in SD mode.
-#define sdPIN_NUM_MISO 19
-#define sdPIN_NUM_MOSI 18
-#define sdPIN_NUM_CLK  5
-#define sdPIN_NUM_CS   14
-
-static const char *TAG = "SDCard test";
-
-void test_sd_card(void)
-{
-    printf("\n=======================================================\n");
-    printf("===== Test using SD Card in SPI mode              =====\n");
-    printf("===== SD Card uses the same gpio's as TFT display =====\n");
-    printf("=======================================================\n\n");
-    ESP_LOGI(TAG, "Initializing SD card");
-    ESP_LOGI(TAG, "Using SPI peripheral");
-
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
-    slot_config.gpio_miso = sdPIN_NUM_MISO;
-    slot_config.gpio_mosi = sdPIN_NUM_MOSI;
-    slot_config.gpio_sck  = sdPIN_NUM_CLK;
-    slot_config.gpio_cs   = sdPIN_NUM_CS;
-    // This initializes the slot without card detect (CD) and write protect (WP) signals.
-    // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
-
-    // Options for mounting the filesystem.
-    // If format_if_mount_failed is set to true, SD card will be partitioned and
-    // formatted in case when mounting fails.
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = false,
-        .max_files = 5
-    };
-
-    // Use settings defined above to initialize SD card and mount FAT filesystem.
-    // Note: esp_vfs_fat_sdmmc_mount is an all-in-one convenience function.
-    // Please check its source code and implement error recovery when developing
-    // production applications.
-    sdmmc_card_t* card;
-    esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
-
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount filesystem. "
-                "If you want the card to be formatted, set format_if_mount_failed = true.");
-        } else {
-            ESP_LOGE(TAG, "Failed to initialize the card (%d). "
-                "Make sure SD card lines have pull-up resistors in place.", ret);
-        }
-        return;
-    }
-
-    // Card has been initialized, print its properties
-    sdmmc_card_print_info(stdout, card);
-
-    // Use POSIX and C standard library functions to work with files.
-    // First create a file.
-    ESP_LOGI(TAG, "Opening file");
-    FILE* f = fopen("/sdcard/hello.txt", "w");
-    if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for writing");
-        return;
-    }
-    fprintf(f, "Hello %s!\n", card->cid.name);
-    fclose(f);
-    ESP_LOGI(TAG, "File written");
-
-    // Check if destination file exists before renaming
-    struct stat st;
-    if (stat("/sdcard/foo.txt", &st) == 0) {
-        // Delete it if it exists
-        unlink("/sdcard/foo.txt");
-    }
-
-    // Rename original file
-    ESP_LOGI(TAG, "Renaming file");
-    if (rename("/sdcard/hello.txt", "/sdcard/foo.txt") != 0) {
-        ESP_LOGE(TAG, "Rename failed");
-        return;
-    }
-
-    // Open renamed file for reading
-    ESP_LOGI(TAG, "Reading file");
-    f = fopen("/sdcard/foo.txt", "r");
-    if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for reading");
-        return;
-    }
-    char line[64];
-    fgets(line, sizeof(line), f);
-    fclose(f);
-    // strip newline
-    char* pos = strchr(line, '\n');
-    if (pos) {
-        *pos = '\0';
-    }
-    ESP_LOGI(TAG, "Read from file: '%s'", line);
-
-    // All done, unmount partition and disable SDMMC or SPI peripheral
-    esp_vfs_fat_sdmmc_unmount();
-    ESP_LOGI(TAG, "Card unmounted");
-
-    printf("===== SD Card test end ================================\n\n");
-}
-
-// ================== TEST SD CARD ==========================================
-*/
-
-void file_listing(){
+void file_listing() {
     DIR *dir;
     printf("Listing contents of /spiffs/ fs\n");
     struct dirent *ent;
@@ -1248,14 +1128,21 @@ void file_listing(){
 }
 
 //=============
-void app_main()
-{
+void app_main() {
     //test_sd_card();
     // ========  PREPARE DISPLAY INITIALIZATION  =========
 
     esp_err_t ret;
 
     // === SET GLOBAL VARIABLES ==========================
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+
 
     // ===================================================
     // ==== Set maximum spi clock for display read    ====
@@ -1269,7 +1156,7 @@ void app_main()
     // ====================================================================
     TFT_PinsInit();
 
-    // ====  CONFIGURE SPI DEVICES(s)  ====================================================================================
+    // ====  CONFIGURE SPI DEVICES(s)  ====================================
 
     spi_device_handle_t spi;
     
@@ -1403,6 +1290,7 @@ void app_main()
 
     ESP_ERROR_CHECK( nvs_flash_init() );
 
+    ESP_LOGI(tag, "-------------------------------------- NTP.");
     // ===== Set time zone ======
     setenv("TZ", "CET-1CEST", 0);
     tzset();
@@ -1462,6 +1350,13 @@ void app_main()
     
     Wait(-2000);
 
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
+    //ESP_ERROR_CHECK(example_connect());
+
+    mqtt_register_start();
     //=========
     // Run demo
     //=========

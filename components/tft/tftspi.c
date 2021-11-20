@@ -75,17 +75,15 @@ void IRAM_ATTR TFT_transaction_begin_callback(spi_transaction_t* transaction){
 // ==== Functions =====================
 
 //-------------------------------
-inline esp_err_t IRAM_ATTR disp_select()
-{
+inline esp_err_t IRAM_ATTR disp_select() {
     //TODO: check necessity for this function
-	return spi_device_acquire_bus(tft_disp_spi, portMAX_DELAY);
+    return spi_device_acquire_bus(tft_disp_spi, portMAX_DELAY);
 }
 
 //---------------------------------
-inline esp_err_t IRAM_ATTR disp_deselect()
-{
+inline esp_err_t IRAM_ATTR disp_deselect() {
     //TODO: check necessity for this function
-	spi_device_release_bus(tft_disp_spi);
+    spi_device_release_bus(tft_disp_spi);
     return ESP_OK;
 }
 
@@ -276,7 +274,7 @@ static void IRAM_ATTR disp_spi_transfer_addrwin_polling(uint16_t x1, uint16_t x2
     ESP_ERROR_CHECK(ret);
 }
 
-static void IRAM_ATTR disp_spi_transfer_addrwin_finish(){
+static void IRAM_ATTR disp_spi_transfer_addrwin_finish() {
     spi_transaction_t* result_transaction;
     esp_err_t ret;
     ret = spi_device_get_trans_result(tft_disp_spi, &result_transaction, portMAX_DELAY);
@@ -291,9 +289,8 @@ static void IRAM_ATTR disp_spi_transfer_addrwin_finish(){
 
 // Convert color to gray scale
 //----------------------------------------------
-static color_t IRAM_ATTR color2gs(color_t color)
-{
-	color_t _color;
+static color_t IRAM_ATTR color2gs(color_t color) {
+    color_t _color;
     float gs_clr = GS_FACT_R * color.r + GS_FACT_G * color.g + GS_FACT_B * color.b;
     if (gs_clr > 255) gs_clr = 255;
 
@@ -369,7 +366,9 @@ void IRAM_ATTR TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, u
     ESP_ERROR_CHECK(ret);
 
     color_t _color = color;
-    if(tft_gray_scale) _color = color2gs(color);
+    if(tft_gray_scale) {
+        _color = color2gs(color);
+    }
     
     if(len <= 10){
         static spi_transaction_t color_transaction_single = {
@@ -392,7 +391,7 @@ void IRAM_ATTR TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, u
             ret = spi_device_polling_transmit(tft_disp_spi, &color_transaction_single);
             ESP_ERROR_CHECK(ret);
         }
-    }else{
+    } else {
         //Set up the dma buffer to fill the screen from
         //if the buffer is already filled with the color we want, we can skip this
         if(tft_repeat_buffer[0].r != _color.r || tft_repeat_buffer[0].g != _color.g || tft_repeat_buffer[0].b != _color.b){
@@ -410,14 +409,15 @@ void IRAM_ATTR TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, u
             .tx_buffer = &tft_repeat_buffer,
             .rx_buffer = NULL,
         };
-        while(still_to_send >= tft_repeat_buffer_size){
+        while (still_to_send >= tft_repeat_buffer_size) {
             still_to_send -= tft_repeat_buffer_size;
 
             queued_transactions++;
             ret = spi_device_queue_trans(tft_disp_spi, &color_transaction, portMAX_DELAY);
             ESP_ERROR_CHECK(ret);
         }
-        if(still_to_send > 0){
+
+        if (still_to_send > 0) {
             static spi_transaction_t color_transaction_partial = {
                 .flags = 0,
                 .user = &tft_spi_user_data,
@@ -442,8 +442,7 @@ void IRAM_ATTR TFT_pushColorRep(int x1, int y1, int x2, int y2, color_t color, u
 
 // Write 'len' color data to TFT 'window' (x1,y2),(x2,y2) from given buffer
 //-----------------------------------------------------------------------------------
-void IRAM_ATTR send_data_start(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf)
-{
+void IRAM_ATTR send_data_start(int x1, int y1, int x2, int y2, uint32_t len, color_t *buf) {
     esp_err_t ret;
 
     disp_spi_transfer_addrwin_start(x1, x2, y1, y2);
@@ -475,8 +474,7 @@ void IRAM_ATTR send_data_start(int x1, int y1, int x2, int y2, uint32_t len, col
     ret = spi_device_queue_trans(tft_disp_spi, &data_transaction, portMAX_DELAY);
 }
 
-void IRAM_ATTR send_data_finish()
-{
+void IRAM_ATTR send_data_finish() {
     disp_spi_transfer_addrwin_finish();
     esp_err_t ret;
     spi_transaction_t* result_transaction;
@@ -492,30 +490,31 @@ void IRAM_ATTR send_data_finish()
 // 'buf' is an array of bytes with 1st byte reserved for reading 1 dummy byte
 // and the rest is actually an array of color_t values
 //--------------------------------------------------------------------------------------------
-int IRAM_ATTR read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, uint8_t set_sp)
-{
-	spi_transaction_t t;
-	uint32_t current_clock = 0;
+int IRAM_ATTR read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, uint8_t set_sp) {
+    spi_transaction_t t;
+    uint32_t current_clock = 0;
 
     memset(&t, 0, sizeof(t));  //Zero out the transaction
-	memset(buf, 0, len*sizeof(color_t));
+    memset(buf, 0, len*sizeof(color_t));
 
     //TODO: check if this functionality can be recovered
-	// if (set_sp) {
-	// 	if (disp_deselect() != ESP_OK) return -1;
-	// 	// Change spi clock if needed
-	// 	current_clock = spi_get_speed(tft_disp_spi);
-	// 	if (tft_max_rdclock < current_clock) spi_set_speed(tft_disp_spi, tft_max_rdclock);
-	// }
+    // if (set_sp) {
+    //     if (disp_deselect() != ESP_OK) return -1;
+    //     // Change spi clock if needed
+    //     current_clock = spi_get_speed(tft_disp_spi);
+    //     if (tft_max_rdclock < current_clock) spi_set_speed(tft_disp_spi, tft_max_rdclock);
+    // }
 
-	if (disp_select() != ESP_OK) return -2;
+    if (disp_select() != ESP_OK) {
+        return -2;
+    }
 
-	// ** Send address window **
-	disp_spi_transfer_addrwin_start(x1, x2, y1, y2);
+    // ** Send address window **
+    disp_spi_transfer_addrwin_start(x1, x2, y1, y2);
     disp_spi_transfer_addrwin_finish();
 
     // ** GET pixels/colors **
-	disp_spi_transfer_cmd(TFT_RAMRD);
+    disp_spi_transfer_cmd(TFT_RAMRD);
 
     t.length    = 0;                   //Send nothing
     t.tx_buffer = NULL;
@@ -524,31 +523,30 @@ int IRAM_ATTR read_data(int x1, int y1, int x2, int y2, int len, uint8_t *buf, u
     t.user      = &tft_spi_user_data;
 
     esp_err_t res = spi_device_polling_transmit(tft_disp_spi, &t);
-	// esp_err_t res = spi_transfer_data(tft_disp_spi, &t); // Receive using direct mode
+    // esp_err_t res = spi_transfer_data(tft_disp_spi, &t); // Receive using direct mode
 
-	disp_deselect();
+    disp_deselect();
 
-	// if (set_sp) {
-	// 	// Restore spi clock if needed
-	// 	if (tft_max_rdclock < current_clock) spi_set_speed(tft_disp_spi, current_clock);
-	// }
+    // if (set_sp) {
+    //     // Restore spi clock if needed
+    //     if (tft_max_rdclock < current_clock) spi_set_speed(tft_disp_spi, current_clock);
+    // }
 
     return res;
 }
 
 // Reads one pixel/color from the TFT's GRAM at position (x,y)
 //-----------------------------------------------
-color_t IRAM_ATTR readPixel(int16_t x, int16_t y)
-{
+color_t IRAM_ATTR readPixel(int16_t x, int16_t y) {
     uint8_t color_buf[sizeof(color_t)+1] = {0};
 
     read_data(x, y, x+1, y+1, 1, color_buf, 1);
 
     color_t color;
-	color.r = color_buf[1];
-	color.g = color_buf[2];
-	color.b = color_buf[3];
-	return color;
+    color.r = color_buf[1];
+    color.g = color_buf[2];
+    color.b = color_buf[3];
+    return color;
 }
 
 // get 16-bit data from touch controller for specified type
@@ -658,16 +656,16 @@ color_t IRAM_ATTR readPixel(int16_t x, int16_t y)
 // //===========================================================
 // int stmpe610_get_touch(uint16_t *x, uint16_t *y, uint16_t *z)
 // {
-// 	if (!(stmpe610_read_byte(STMPE610_REG_TSC_CTRL) & 0x80)) return 0;
+//     if (!(stmpe610_read_byte(STMPE610_REG_TSC_CTRL) & 0x80)) return 0;
 
 //     // Get touch data
 //     uint8_t fifo_size = stmpe610_read_byte(STMPE610_REG_FIFO_SIZE);
 //     while (fifo_size < 2) {
-//     	if (!(stmpe610_read_byte(STMPE610_REG_TSC_CTRL) & 0x80)) return 0;
+//         if (!(stmpe610_read_byte(STMPE610_REG_TSC_CTRL) & 0x80)) return 0;
 //         fifo_size = stmpe610_read_byte(STMPE610_REG_FIFO_SIZE);
 //     }
 //     while (fifo_size > 120) {
-//     	if (!(stmpe610_read_byte(STMPE610_REG_TSC_CTRL) & 0x80)) return 0;
+//         if (!(stmpe610_read_byte(STMPE610_REG_TSC_CTRL) & 0x80)) return 0;
 //         *x = stmpe610_read_word(STMPE610_REG_TSC_DATA_X);
 //         *y = stmpe610_read_word(STMPE610_REG_TSC_DATA_Y);
 //         *z = stmpe610_read_byte(STMPE610_REG_TSC_DATA_Z);
@@ -683,11 +681,11 @@ color_t IRAM_ATTR readPixel(int16_t x, int16_t y)
 //     /*
 //     // Clear the rest of the fifo
 //     {
-//         stmpe610_write_reg(STMPE610_REG_FIFO_STA, 0x01);		// FIFO reset enable
-//         stmpe610_write_reg(STMPE610_REG_FIFO_STA, 0x00);		// FIFO reset disable
+//         stmpe610_write_reg(STMPE610_REG_FIFO_STA, 0x01);        // FIFO reset enable
+//         stmpe610_write_reg(STMPE610_REG_FIFO_STA, 0x00);        // FIFO reset disable
 //     }
 //     */
-// 	return 1;
+//     return 1;
 // }
 
 // ==== STMPE610 ===========================================================================
@@ -697,34 +695,36 @@ color_t IRAM_ATTR readPixel(int16_t x, int16_t y)
 // Reads and issues a series of LCD commands stored in byte array
 //---------------------------------------------------------------------------
 static void commandList(spi_device_handle_t spi, const uint8_t *addr) {
-  uint8_t  numCommands, numArgs, cmd;
-  uint16_t ms;
+    uint8_t  numCommands, numArgs, cmd;
+    uint16_t ms;
 
-  numCommands = *addr++;				// Number of commands to follow
-  while(numCommands--) {				// For each command...
-    cmd = *addr++;						// save command
-    numArgs  = *addr++;					// Number of args to follow
-    ms       = numArgs & TFT_CMD_DELAY;	// If high bit set, delay follows args
-    numArgs &= ~TFT_CMD_DELAY;			// Mask out delay bit
+    numCommands = *addr++;                // Number of commands to follow
+    while(numCommands--) {                // For each command...
+        cmd = *addr++;                        // save command
+        numArgs  = *addr++;                    // Number of args to follow
+        ms       = numArgs & TFT_CMD_DELAY;    // If high bit set, delay follows args
+        numArgs &= ~TFT_CMD_DELAY;            // Mask out delay bit
 
-	disp_spi_transfer_cmd_data(cmd, (uint8_t *)addr, numArgs);
+        disp_spi_transfer_cmd_data(cmd, (uint8_t *)addr, numArgs);
 
-	addr += numArgs;
+        addr += numArgs;
 
-    if(ms) {
-      ms = *addr++;              // Read post-command delay time (ms)
-      if(ms == 255) ms = 500;    // If 255, delay for 500 ms
-	  vTaskDelay(ms / portTICK_RATE_MS);
+        if(ms) {
+            ms = *addr++;              // Read post-command delay time (ms)
+            if(ms == 255) {
+                ms = 500;    // If 255, delay for 500 ms
+            }
+            vTaskDelay(ms / portTICK_RATE_MS);
+        }
     }
-  }
 }
 
 //==================================
 void _tft_setRotation(uint8_t rot) {
-	uint8_t rotation = rot & 3; // can't be higher than 3
-	uint8_t send = 1;
-	static uint8_t madctl = 0;
-	uint16_t tmp;
+    uint8_t rotation = rot & 3; // can't be higher than 3
+    uint8_t send = 1;
+    static uint8_t madctl = 0;
+    uint16_t tmp;
 
     if ((rotation & 1)) {
         // in landscape modes must be width > height
@@ -803,18 +803,17 @@ void _tft_setRotation(uint8_t rot) {
         break;
     }
     #endif
-	if (send) {
-		if (disp_select() == ESP_OK) {
-			disp_spi_transfer_cmd_data(TFT_MADCTL, &madctl, 1);
-			disp_deselect();
-		}
-	}
+    if (send) {
+        if (disp_select() == ESP_OK) {
+            disp_spi_transfer_cmd_data(TFT_MADCTL, &madctl, 1);
+            disp_deselect();
+        }
+    }
 
 }
 
 //=================
-void TFT_PinsInit()
-{
+void TFT_PinsInit() {
     // Route all used pins to GPIO control
     gpio_pad_select_gpio(PIN_NUM_CS);
     gpio_pad_select_gpio(PIN_NUM_MOSI);
@@ -852,8 +851,7 @@ void TFT_PinsInit()
 
 // Initialize the display
 // ====================
-void TFT_display_init()
-{
+void TFT_display_init() {
     esp_err_t ret;
 
 #if PIN_NUM_RST
@@ -867,46 +865,44 @@ void TFT_display_init()
     ret = disp_select();
     ESP_ERROR_CHECK(ret);
     //Send all the initialization commands
-	if (tft_disp_type == DISP_TYPE_ILI9341) {
-		commandList(tft_disp_spi, ILI9341_init);
-	}
-	else if (tft_disp_type == DISP_TYPE_ILI9488) {
-		commandList(tft_disp_spi, ILI9488_init);
-	}
-	else if (tft_disp_type == DISP_TYPE_ST7789V) {
-		commandList(tft_disp_spi, ST7789V_init);
-	}
-	else if (tft_disp_type == DISP_TYPE_ST7735) {
-		commandList(tft_disp_spi, STP7735_init);
-	}
-	else if (tft_disp_type == DISP_TYPE_ST7735R) {
-		commandList(tft_disp_spi, STP7735R_init);
-		commandList(tft_disp_spi, Rcmd2green);
-		commandList(tft_disp_spi, Rcmd3);
-	}
-	else if (tft_disp_type == DISP_TYPE_ST7735B) {
-		commandList(tft_disp_spi, STP7735R_init);
-		commandList(tft_disp_spi, Rcmd2red);
-		commandList(tft_disp_spi, Rcmd3);
-	    uint8_t dt = 0xC0;
-		disp_spi_transfer_cmd_data(TFT_MADCTL, &dt, 1);
-	}
-	else assert(0);
+    if (tft_disp_type == DISP_TYPE_ILI9341) {
+        commandList(tft_disp_spi, ILI9341_init);
+    }
+    else if (tft_disp_type == DISP_TYPE_ILI9488) {
+        commandList(tft_disp_spi, ILI9488_init);
+    }
+    else if (tft_disp_type == DISP_TYPE_ST7789V) {
+        commandList(tft_disp_spi, ST7789V_init);
+    }
+    else if (tft_disp_type == DISP_TYPE_ST7735) {
+        commandList(tft_disp_spi, STP7735_init);
+    }
+    else if (tft_disp_type == DISP_TYPE_ST7735R) {
+        commandList(tft_disp_spi, STP7735R_init);
+        commandList(tft_disp_spi, Rcmd2green);
+        commandList(tft_disp_spi, Rcmd3);
+    }
+    else if (tft_disp_type == DISP_TYPE_ST7735B) {
+        commandList(tft_disp_spi, STP7735R_init);
+        commandList(tft_disp_spi, Rcmd2red);
+        commandList(tft_disp_spi, Rcmd3);
+        uint8_t dt = 0xC0;
+        disp_spi_transfer_cmd_data(TFT_MADCTL, &dt, 1);
+    }
+    else assert(0);
 
     ret = disp_deselect();
-	ESP_ERROR_CHECK(ret);
+    ESP_ERROR_CHECK(ret);
 
-	// Clear screen
+    // Clear screen
     _tft_setRotation(PORTRAIT);
 
-	TFT_pushColorRep(TFT_STATIC_WIDTH_OFFSET, TFT_STATIC_HEIGHT_OFFSET,
+    TFT_pushColorRep(TFT_STATIC_WIDTH_OFFSET, TFT_STATIC_HEIGHT_OFFSET,
                      tft_width + TFT_STATIC_WIDTH_OFFSET -1, tft_height + TFT_STATIC_HEIGHT_OFFSET -1,
                      (color_t){0,0,0},
                      (uint32_t)(tft_height * tft_width));
-	///Enable backlight
+    ///Enable backlight
 #if PIN_NUM_BCKL
     gpio_set_level(PIN_NUM_BCKL, PIN_BCKL_ON);
 #endif
 }
-
-
