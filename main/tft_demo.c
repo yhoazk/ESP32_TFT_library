@@ -23,8 +23,6 @@
 #include "helpers.h"
 #include "wifi_setup.h"
 
-//#include "nvs_flash/include/nvs_flash.h"
-
 // ==========================================================
 // Define which spi bus to use VSPI_HOST or HSPI_HOST
 #define SPI_BUS HSPI_HOST
@@ -89,24 +87,6 @@ static void _checkTime()
 }
 
 //---------------------
-static int Wait(int ms) {
-    uint8_t tm = 1;
-    if (ms < 0) {
-        tm = 0;
-        ms *= -1;
-    }
-    if (ms <= 50) {
-        vTaskDelay(ms / portTICK_RATE_MS);
-    } else {
-        for (int n=0; n<ms; n += 50) {
-            vTaskDelay(50 / portTICK_RATE_MS);
-            if (tm) _checkTime();
-        }
-    }
-    return 1;
-}
-
-//---------------------
 static void _dispTime() {
     Font curr_font = tft_cfont;
     set_font();
@@ -143,14 +123,24 @@ static void disp_header(char *info) {
     TFT_setclipwin(0,TFT_getfontheight()+9, tft_width-1, tft_height-TFT_getfontheight()-10);
 }
 
-static void btc_usd() {
+static void btc_usd_demo() {
     printf("Demo: %s\r\n", __func__);
-
+    disp_header("BTC USD");
+    char msg[30];
+    memset(msg, 0, 30);
+    sprintf(msg, "BTC/USD: %.2f", get_btc_usd());
+    TFT_print(msg, 0, 8);
+    Wait(-GDEMO_INFO_TIME);
 }
 
-static void eur_mxn() {
+static void eur_mxn_demo() {
     printf("Demo: %s\r\n", __func__);
-
+    disp_header("EUR/MXN");
+    char msg[30];
+    memset(msg, 0, 30);
+    sprintf(msg, "EUR/MXN: %.2f", get_eur_mxn());
+    TFT_print(msg, 0, 8);
+    Wait(-GDEMO_INFO_TIME);
 }
 
 //---------------------------------------------
@@ -900,20 +890,20 @@ void tft_demo() {
 
         disp_header("Welcome to ESP32");
 
-        test_times();
-        font_demo();
-        line_demo();
-        aline_demo();
-        rect_demo();
-        circle_demo();
-        ellipse_demo();
-        arc_demo();
-        triangle_demo();
-        poly_demo();
-        pixel_demo();
-        disp_images();
-        btc_usd();
-        eur_mxn();
+        // test_times();
+        // font_demo();
+        // line_demo();
+        // aline_demo();
+        // rect_demo();
+        // circle_demo();
+        // ellipse_demo();
+        // arc_demo();
+        // triangle_demo();
+        // poly_demo();
+        // pixel_demo();
+        // disp_images();
+        btc_usd_demo();
+        eur_mxn_demo();
 
         _demo_pass++;
     }
@@ -1033,9 +1023,6 @@ void app_main() {
     printf("TFT display DEMO, LoBo 11/2017\r\n");
     printf("==============================\r\n");
     printf("Pins used: miso=%d, mosi=%d, sck=%d, cs=%d\r\n", PIN_NUM_MISO, PIN_NUM_MOSI, PIN_NUM_CLK, PIN_NUM_CS);
-#if USE_TOUCH > TOUCH_TYPE_NONE
-    printf(" Touch CS: %d\r\n", PIN_NUM_TCS);
-#endif
     printf("==============================\r\n\r\n");
 
     // ==================================================================
