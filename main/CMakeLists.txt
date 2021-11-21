@@ -1,4 +1,4 @@
-set(SOURCES tft_demo.c mqtt_handler.c )
+set(SOURCES tft_demo.c mqtt_handler.c  helpers.c wifi_setup.c)
 idf_component_register(
         SRCS ${SOURCES}
         INCLUDE_DIRS

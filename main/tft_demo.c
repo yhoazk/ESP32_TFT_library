@@ -20,22 +20,10 @@
 #include "esp_spiffs.h"
 #include "dirent.h"
 #include "mqtt_handler.h"
+#include "helpers.h"
+#include "wifi_setup.h"
 
-/*#include "protocol_examples_common.h"
-#include "lwip/sockets.h"
-#include "lwip/dns.h"
-#include "lwip/netdb.h"
-*/
-
-#ifdef CONFIG_EXAMPLE_USE_WIFI
-#include "esp_wifi.h"
-#include "freertos/event_groups.h"
-#include "esp_sntp.h"
-#include "esp_log.h"
-#include "nvs_flash/include/nvs_flash.h"
-
-#endif
-
+//#include "nvs_flash/include/nvs_flash.h"
 
 // ==========================================================
 // Define which spi bus to use VSPI_HOST or HSPI_HOST
@@ -43,6 +31,7 @@
 // ==========================================================
 
 
+static const char tag[] = "[TFT Demo]";
 static int _demo_pass = 0;
 static uint8_t doprint = 1;
 static uint8_t run_gs_demo = 0; // Run gray scale demo if set to 1
@@ -56,108 +45,6 @@ static int spiffs_is_mounted = 0;
 #define GDEMO_TIME 1000
 #define GDEMO_INFO_TIME 5000
 
-//==================================================================================
-#ifdef CONFIG_EXAMPLE_USE_WIFI
-
-static const char tag[] = "[TFT Demo]";
-
-/* FreeRTOS event group to signal when we are connected & ready to make a request */
-static EventGroupHandle_t wifi_event_group;
-
-/* The event group allows multiple bits for each event,
-   but we only care about one event - are we connected
-   to the AP with an IP? */
-const int CONNECTED_BIT = 0x00000001;
-
-//------------------------------------------------------------
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        /* This is a workaround as ESP32 WiFi libs don't currently
-           auto-reassociate. */
-        esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
-}
-
-//-------------------------------
-static void initialise_wifi(void)
-{
-    tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-        },
-    };
-    ESP_LOGI(tag, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-}
-
-//-------------------------------
-static void initialize_sntp(void)
-{
-    ESP_LOGI(tag, "Initializing SNTP");
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
-    sntp_init();
-}
-
-//--------------------------
-static int obtain_time(void)
-{
-    int res = 1;
-    initialise_wifi();
-    xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
-
-    initialize_sntp();
-
-    // wait for time to be set
-    int retry = 0;
-    const int retry_count = 20;
-
-    time(&time_now);
-    tm_info = localtime(&time_now);
-
-    while(tm_info->tm_year < (2016 - 1900) && ++retry < retry_count) {
-        //ESP_LOGI(tag, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
-        sprintf(tmp_buff, "Wait %0d/%d", retry, retry_count);
-        TFT_print(tmp_buff, CENTER, LASTY);
-        vTaskDelay(500 / portTICK_RATE_MS);
-        time(&time_now);
-        tm_info = localtime(&time_now);
-    }
-    if (tm_info->tm_year < (2016 - 1900)) {
-        ESP_LOGI(tag, "System time NOT set.");
-        res = 0;
-    }
-    else {
-        ESP_LOGI(tag, "System time is set.");
-    }
-
-  //  ESP_ERROR_CHECK( esp_wifi_stop() );
-    return res;
-}
-
-#endif  //CONFIG_EXAMPLE_USE_WIFI
 //==================================================================================
 
 /* Selects font size depending on the width of the sring */
@@ -210,42 +97,13 @@ static int Wait(int ms) {
     }
     if (ms <= 50) {
         vTaskDelay(ms / portTICK_RATE_MS);
-        //if (_checkTouch()) return 0;
     } else {
         for (int n=0; n<ms; n += 50) {
             vTaskDelay(50 / portTICK_RATE_MS);
             if (tm) _checkTime();
-            //if (_checkTouch()) return 0;
         }
     }
     return 1;
-}
-
-//-------------------------------------------------------------------
-static unsigned int rand_interval(unsigned int min, unsigned int max) {
-    int r;
-    const unsigned int range = 1 + max - min;
-    const unsigned int buckets = RAND_MAX / range;
-    const unsigned int limit = buckets * range;
-
-    /* Create equal size buckets all in a row, then fire randomly towards
-     * the buckets until you land in one of them. All buckets are equally
-     * likely. If you land off the end of the line of buckets, try again. */
-    do {
-        r = rand();
-    } while (r >= limit);
-
-    return min + (r / buckets);
-}
-
-// Generate random color
-//-----------------------------
-static color_t random_color() {
-    color_t color;
-    color.r  = (uint8_t)rand_interval(8,252);
-    color.g  = (uint8_t)rand_interval(8,252);
-    color.b  = (uint8_t)rand_interval(8,252);
-    return color;
 }
 
 //---------------------
@@ -949,54 +807,6 @@ static void poly_demo() {
     Wait(-GDEMO_INFO_TIME);
 }
 
-//----------------------
-static void touch_demo() {
-#if USE_TOUCH
-    int tx, ty, ltx, lty, doexit = 0;
-
-    disp_header("TOUCH DEMO");
-    TFT_setFont(DEFAULT_FONT, NULL);
-    tft_fg = TFT_YELLOW;
-    TFT_print("Touch to draw", CENTER, 40);
-    TFT_print("Touch footer to clear", CENTER, 60);
-
-    ltx = -9999;
-    lty = -999;
-    while (1) {
-        if (TFT_read_touch(&tx, &ty, 0)) {
-            // Touched
-            if (((tx >= tft_dispWin.x1) && (tx <= tft_dispWin.x2)) &&
-                ((ty >= tft_dispWin.y1) && (ty <= tft_dispWin.y2))) {
-                if ((doexit > 2) || ((abs(tx-ltx) < 5) && (abs(ty-lty) < 5))) {
-                    if (((abs(tx-ltx) > 0) || (abs(ty-lty) > 0))) {
-                        TFT_fillCircle(tx-tft_dispWin.x1, ty-tft_dispWin.y1, 4,random_color());
-                        sprintf(tmp_buff, "%d,%d", tx, ty);
-                        update_header(NULL, tmp_buff);
-                    }
-                    ltx = tx;
-                    lty = ty;
-                }
-                doexit = 0;
-            }
-            else if (ty > (tft_dispWin.y2+5)) TFT_fillWindow(TFT_BLACK);
-            else {
-                doexit++;
-                if (doexit == 2) update_header(NULL, "---");
-                if (doexit > 50) return;
-                vTaskDelay(100 / portTICK_RATE_MS);
-            }
-        }
-        else {
-            doexit++;
-            if (doexit == 2) update_header(NULL, "---");
-            if (doexit > 50) return;
-            vTaskDelay(100 / portTICK_RATE_MS);
-        }
-    }
-#endif
-}
-
-
 //===============
 void tft_demo() {
 
@@ -1102,7 +912,6 @@ void tft_demo() {
         poly_demo();
         pixel_demo();
         disp_images();
-        touch_demo();
         btc_usd();
         eur_mxn();
 
@@ -1129,7 +938,6 @@ void file_listing() {
 
 //=============
 void app_main() {
-    //test_sd_card();
     // ========  PREPARE DISPLAY INITIALIZATION  =========
 
     esp_err_t ret;
@@ -1349,12 +1157,6 @@ void app_main() {
     file_listing();
     
     Wait(-2000);
-
-    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
-     * Read "Establishing Wi-Fi or Ethernet Connection" section in
-     * examples/protocols/README.md for more information about this function.
-     */
-    //ESP_ERROR_CHECK(example_connect());
 
     mqtt_register_start();
     //=========
