@@ -10,7 +10,8 @@
 #include "nvs_flash/include/nvs_flash.h"
 #include <stdlib.h>
 
-esp_err_t event_handler(void *ctx, system_event_t *event);
+static void event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data);
 void initialise_wifi();
 void initialize_sntp();
 int obtain_time();

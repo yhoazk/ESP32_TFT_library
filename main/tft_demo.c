@@ -930,6 +930,7 @@ void file_listing() {
 void app_main() {
     // ========  PREPARE DISPLAY INITIALIZATION  =========
 
+    ESP_LOGI(tag, "Initializing SNTP");
     esp_err_t ret;
 
     // === SET GLOBAL VARIABLES ==========================
