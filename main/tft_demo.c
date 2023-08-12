@@ -835,7 +835,7 @@ void tft_demo() {
             sprintf(dtype, "Unknown");
     }
     
-    uint8_t disp_rot = PORTRAIT;
+    uint8_t disp_rot = LANDSCAPE_FLIP;
     _demo_pass = 0;
     tft_gray_scale = 0;
     doprint = 1;
@@ -857,33 +857,13 @@ void tft_demo() {
 
     Wait(4000);
 
+    TFT_setRotation(disp_rot);
     while (1) {
-        if (run_gs_demo) {
-            if (_demo_pass == 8) doprint = 0;
-            // Change gray scale mode on every 2nd pass
-            tft_gray_scale = _demo_pass & 1;
-            // change display rotation
-            if ((_demo_pass % 2) == 0) {
-                tft_bg = TFT_BLACK;
-                TFT_setRotation(disp_rot);
-                disp_rot++;
-                disp_rot &= 3;
-            }
-        }
-        else {
-            if (_demo_pass == 4) doprint = 0;
-            // change display rotation
-            tft_bg = TFT_BLACK;
-            TFT_setRotation(disp_rot);
-            disp_rot++;
-            disp_rot &= 3;
-        }
-
         if (doprint) {
-            if (disp_rot == 1) sprintf(tmp_buff, "PORTRAIT");
-            if (disp_rot == 2) sprintf(tmp_buff, "LANDSCAPE");
-            if (disp_rot == 3) sprintf(tmp_buff, "PORTRAIT FLIP");
-            if (disp_rot == 0) sprintf(tmp_buff, "LANDSCAPE FLIP");
+            if (disp_rot == PORTRAIT) sprintf(tmp_buff, "PORTRAIT");
+            if (disp_rot == LANDSCAPE) sprintf(tmp_buff, "LANDSCAPE");
+            if (disp_rot == PORTRAIT_FLIP) sprintf(tmp_buff, "PORTRAIT FLIP");
+            if (disp_rot == LANDSCAPE_FLIP) sprintf(tmp_buff, "LANDSCAPE FLIP");
             printf("\r\n==========================================\r\nDisplay: %s: %s %d,%d %s\r\n\r\n",
                     dtype, tmp_buff, tft_width, tft_height, ((tft_gray_scale) ? "Gray" : "Color"));
         }
@@ -1082,7 +1062,7 @@ void app_main() {
     TFT_setFont(DEFAULT_FONT, NULL);
     TFT_resetclipwin();
 
-#ifdef CONFIG_EXAMPLE_USE_WIFI
+#ifdef CONFIG_ESP_EXAMPLE_USE_WIFI
 
     ESP_ERROR_CHECK( nvs_flash_init() );
 
