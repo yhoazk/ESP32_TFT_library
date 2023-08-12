@@ -11,15 +11,15 @@ static void log_error_if_nonzero(const char * message, int error_code) {
 }
 
 static float btc_usd;
-char btc_usd_topic_buff[255];
+char topic_usd_btc_buff[255];
 char btc_usd_data_buf[255];
 
 static float eur_mxn;
-char eur_mxn_topic_buff[255];
+char topic_mxn_eur_buff[255];
 char eur_mxn_data_buff[255];
 
-const char* btc_usd_topic = "/curr/btc_usd";
-const char* eur_mxn_topic = "/curr/eur_mxn";
+const char* topic_usd_btc = "/curr/usd_btc";
+const char* topic_mxn_eur = "/curr/mxn_eur";
 
 float get_btc_usd() {
     return btc_usd;
@@ -28,7 +28,7 @@ float get_eur_mxn() {
     return eur_mxn;
 }
 static void update_btc_usd(esp_mqtt_event_handle_t ev) {
-    if (memcmp(btc_usd_topic, ev->topic, ev->topic_len) == 0) {
+    if (memcmp(topic_usd_btc, ev->topic, ev->topic_len) == 0) {
         printf("is topic btc_usd\n");
         btc_usd = atof(ev->data);
         printf("Price %f", btc_usd);
@@ -37,7 +37,7 @@ static void update_btc_usd(esp_mqtt_event_handle_t ev) {
     }
 }
 static void update_eur_mxn(esp_mqtt_event_handle_t ev) {
-    if (memcmp(eur_mxn_topic, ev->topic, ev->topic_len) == 0) {
+    if (memcmp(topic_mxn_eur, ev->topic, ev->topic_len) == 0) {
         printf("is topic eur_mxn\n");
         eur_mxn = atof(ev->data);
     } else {
@@ -54,9 +54,9 @@ static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 
-            msg_id = esp_mqtt_client_subscribe(client, "/curr/btc_usd", 0);
+            msg_id = esp_mqtt_client_subscribe(client, topic_usd_btc, 0);
             ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-            msg_id = esp_mqtt_client_subscribe(client, "/curr/eur_mxn", 0);
+            msg_id = esp_mqtt_client_subscribe(client, topic_mxn_eur, 0);
             ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
 
             break;
