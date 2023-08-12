@@ -47,11 +47,10 @@ static int spiffs_is_mounted = 0;
 
 /* Selects font size depending on the width of the sring */
 static void set_font () {
-
     if (tft_width < 240) {
         TFT_setFont(DEF_SMALL_FONT, NULL);
     } else  {
-        TFT_setFont(DEFAULT_FONT, NULL);
+        TFT_setFont(DEJAVU24_FONT, NULL);
     }
 }
 
@@ -106,15 +105,15 @@ static void disp_header(char *info) {
     TFT_fillScreen(TFT_BLACK);
     TFT_resetclipwin();
 
-    tft_fg = TFT_YELLOW;
-    tft_bg = (color_t){ 64, 64, 64 };
+    tft_fg = TFT_DARKGREY;
+    tft_bg = TFT_BLACK; // (color_t){ 64, 64, 64 };
 
     set_font();
     TFT_fillRect(0, 0, tft_width-1, TFT_getfontheight()+8, tft_bg);
-    TFT_drawRect(0, 0, tft_width-1, TFT_getfontheight()+8, TFT_CYAN);
+    TFT_drawRect(0, 0, tft_width-1, TFT_getfontheight()+8, TFT_BLACK);
 
     TFT_fillRect(0, tft_height-TFT_getfontheight()-9, tft_width-1, TFT_getfontheight()+8, tft_bg);
-    TFT_drawRect(0, tft_height-TFT_getfontheight()-9, tft_width-1, TFT_getfontheight()+8, TFT_CYAN);
+    TFT_drawRect(0, tft_height-TFT_getfontheight()-9, tft_width-1, TFT_getfontheight()+8, TFT_BLACK);
 
     TFT_print(info, CENTER, 4);
     _dispTime();
@@ -125,21 +124,29 @@ static void disp_header(char *info) {
 
 static void btc_usd_demo() {
     printf("Demo: %s\r\n", __func__);
-    disp_header("BTC USD");
+    disp_header("USD/BTC");
+    TFT_setFont(FONT_7SEG, NULL);
+    set_7seg_font_atrib(23, 2, 1, TFT_YELLOW);
     char msg[30];
     memset(msg, 0, 30);
-    sprintf(msg, "BTC/USD: %.2f", get_btc_usd());
-    TFT_print(msg, 0, 8);
+    float usd_btc = get_btc_usd();
+    printf("USD/BTC: %f\n", usd_btc);
+    sprintf(msg, "%.2f", usd_btc);
+    TFT_print(msg, 0, 2);
     Wait(-GDEMO_INFO_TIME);
 }
 
 static void eur_mxn_demo() {
     printf("Demo: %s\r\n", __func__);
-    disp_header("EUR/MXN");
+    disp_header("MXN/EUR");
+    TFT_setFont(FONT_7SEG, NULL);
+    set_7seg_font_atrib(23, 2, 1, TFT_BLUE);
     char msg[30];
     memset(msg, 0, 30);
-    sprintf(msg, "EUR/MXN: %.2f", get_eur_mxn());
-    TFT_print(msg, 0, 8);
+    float mxn_eur = get_eur_mxn();
+    printf("MXN/EUR: %f\n", mxn_eur);
+    sprintf(msg, "%.2f", mxn_eur);
+    TFT_print(msg, 0, 2);
     Wait(-GDEMO_INFO_TIME);
 }
 
@@ -159,13 +166,13 @@ static void update_header(char *hdr, char *ftr) {
 
     if (hdr) {
         TFT_fillRect(1, 1, tft_width-3, TFT_getfontheight()+6, tft_bg);
-        TFT_print(hdr, CENTER, 4);
+        TFT_print(hdr, RIGHT, 4);
     }
 
     if (ftr) {
         TFT_fillRect(1, tft_height-TFT_getfontheight()-8, tft_width-3, TFT_getfontheight()+6, tft_bg);
         if (strlen(ftr) == 0) _dispTime();
-        else TFT_print(ftr, CENTER, tft_height-TFT_getfontheight()-5);
+        else TFT_print(ftr, RIGHT, tft_height-TFT_getfontheight()-5);
     }
 
     tft_cfont = curr_font;
@@ -804,9 +811,8 @@ void tft_demo() {
     tft_text_wrap = 0;
     tft_font_transparent = 0;
     tft_font_forceFixed = 0;
-    printf("Demo: %s\r\n", __func__);
+    printf("Demo: %s\n", __func__);
     TFT_resetclipwin();
-
 
     tft_image_debug = 0;
 
@@ -841,14 +847,14 @@ void tft_demo() {
     doprint = 1;
 
     TFT_setRotation(disp_rot);
-    disp_header("ESP32 TFT DEMO");
+    disp_header("Currency track");
     TFT_setFont(COMIC24_FONT, NULL);
     int tempy = TFT_getfontheight() + 4;
     tft_fg = TFT_ORANGE;
-    TFT_print("ESP32", CENTER, (tft_dispWin.y2-tft_dispWin.y1)/2 - tempy);
+    TFT_print("USD/BTC-MXN/EUR", CENTER, (tft_dispWin.y2-tft_dispWin.y1)/2 - tempy);
     TFT_setFont(UBUNTU16_FONT, NULL);
     tft_fg = TFT_CYAN;
-    TFT_print("TFT Demo", CENTER, LASTY+tempy);
+    TFT_print("------", CENTER, LASTY+tempy);
     tempy = TFT_getfontheight() + 4;
     TFT_setFont(DEFAULT_FONT, NULL);
     tft_fg = TFT_GREEN;
@@ -858,17 +864,17 @@ void tft_demo() {
     Wait(4000);
 
     TFT_setRotation(disp_rot);
+    if (doprint) {
+        if (disp_rot == PORTRAIT) sprintf(tmp_buff, "PORTRAIT");
+        if (disp_rot == LANDSCAPE) sprintf(tmp_buff, "LANDSCAPE");
+        if (disp_rot == PORTRAIT_FLIP) sprintf(tmp_buff, "PORTRAIT FLIP");
+        if (disp_rot == LANDSCAPE_FLIP) sprintf(tmp_buff, "LANDSCAPE FLIP");
+        printf("\r\n==========================================\r\nDisplay: %s: %s %d,%d %s\r\n\r\n",
+                dtype, tmp_buff, tft_width, tft_height, ((tft_gray_scale) ? "Gray" : "Color"));
+    }
     while (1) {
-        if (doprint) {
-            if (disp_rot == PORTRAIT) sprintf(tmp_buff, "PORTRAIT");
-            if (disp_rot == LANDSCAPE) sprintf(tmp_buff, "LANDSCAPE");
-            if (disp_rot == PORTRAIT_FLIP) sprintf(tmp_buff, "PORTRAIT FLIP");
-            if (disp_rot == LANDSCAPE_FLIP) sprintf(tmp_buff, "LANDSCAPE FLIP");
-            printf("\r\n==========================================\r\nDisplay: %s: %s %d,%d %s\r\n\r\n",
-                    dtype, tmp_buff, tft_width, tft_height, ((tft_gray_scale) ? "Gray" : "Color"));
-        }
 
-        disp_header("Welcome to ESP32");
+        // disp_header("Welcome to ESP32");
 
         // test_times();
         // font_demo();
@@ -1058,7 +1064,7 @@ void app_main() {
     tft_font_forceFixed = 0;
     tft_gray_scale = 0;
     TFT_setGammaCurve(DEFAULT_GAMMA_CURVE);
-    TFT_setRotation(PORTRAIT);
+    TFT_setRotation(LANDSCAPE_FLIP);
     TFT_setFont(DEFAULT_FONT, NULL);
     TFT_resetclipwin();
 
