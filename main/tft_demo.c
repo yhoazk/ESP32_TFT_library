@@ -885,21 +885,15 @@ void tft_demo() {
         printf("\r\n==========================================\r\nDisplay: %s: %s %d,%d %s\r\n\r\n",
                 dtype, tmp_buff, tft_width, tft_height, ((tft_gray_scale) ? "Gray" : "Color"));
     }
+    uint32_t fsm_state = STATE_TFT_ON;
     while (1) {
-
-        _demo_pass++;
-        printf("demo pass: %i\n", _demo_pass);
-        if (_demo_pass == 3) {
-            disp_spi_transfer_cmd(TFT_DISPOFF);
-            Wait(5);
-            // Shutdown backlight
-            // disp_spi_transfer_cmd_data(0x53, &backlight_off, 1);
-            Wait(5);
-            // Set display brightness
-            // disp_spi_transfer_cmd_data(0x51, &brigthness_off, 1);
-            Wait(15);
-            Wait(-GDEMO_INFO_TIME);
-        } else if (_demo_pass == 5) {
+        fsm_state = fsm_calc_next(fsm_state);
+        switch (fsm_state)
+        {
+        case STATE_TFT_OFF:
+            Wait(5 * 1000);
+            break;
+        case TRANSITION_OFF_TO_ON:
             disp_spi_transfer_cmd(TFT_DISPON);
             Wait(5);
             // poweron backlight
@@ -908,11 +902,24 @@ void tft_demo() {
             // Set display brightness
             // disp_spi_transfer_cmd_data(0x51, &brigthness_on, 1);
             Wait(15);
-            Wait(-GDEMO_INFO_TIME);
-        } else  if (_demo_pass < 3 || _demo_pass > 5) {
+            break;
+        case TRANSITION_ON_TO_OFF:
+            disp_spi_transfer_cmd(TFT_DISPOFF);
+            Wait(5);
+            // Shutdown backlight
+            // disp_spi_transfer_cmd_data(0x53, &backlight_off, 1);
+            Wait(5);
+            // Set display brightness
+            // disp_spi_transfer_cmd_data(0x51, &brigthness_off, 1);
+            Wait(15);
+            break;
+        default:
+        case STATE_TFT_ON:
             btc_usd_demo();
             eur_mxn_demo();
+            break;
         }
+
     }
 }
 void file_listing() {

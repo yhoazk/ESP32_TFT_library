@@ -1,4 +1,5 @@
 #include "helpers.h"
+#include "esp_sntp.h"
 #include <stdlib.h>
 #include "freertos/task.h"
 //-------------------------------------------------------------------
@@ -44,4 +45,46 @@ int Wait(int ms) {
         }
     }
     return 1;
+}
+
+uint32_t fsm_calc_next(uint32_t current_state) {
+    static struct tm* tm_info;
+    static time_t time_now, time_last = 0;
+    time(&time_now);
+    time_last = time_now;
+    tm_info = localtime(&time_now);
+    uint32_t next_state;
+    int this_min = tm_info->tm_min;
+    static int last_min = 0;
+    printf("Current State: %d  at min: %d", current_state, this_min);
+    switch (current_state) {
+    case STATE_TFT_OFF:
+        if ((this_min % 10) == 0 ||(this_min % 10) == 5 ) {
+            next_state = TRANSITION_OFF_TO_ON;
+        } else {
+            next_state = STATE_TFT_OFF;
+        }
+        break;
+    case TRANSITION_OFF_TO_ON:
+        last_min = this_min;
+        next_state = STATE_TFT_ON;
+        break;
+    case TRANSITION_ON_TO_OFF:
+        next_state = STATE_TFT_OFF;
+        break;
+    default:
+    case STATE_TFT_ON:
+        // Initial state
+        if (last_min == 0) {
+            last_min = this_min;
+        }
+        if (tm_info->tm_min > last_min) {
+            next_state = TRANSITION_ON_TO_OFF;
+        } else {
+            next_state = STATE_TFT_ON;
+        }
+        break;
+    }
+    printf(" last min: %d Next state: %d\n", last_min, next_state);
+    return next_state;
 }
